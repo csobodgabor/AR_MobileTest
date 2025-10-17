@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Egyszerű AR demo</title>
+<style>
+  body, html {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+  video {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: -1;
+  }
+  canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+  #info {
+    position: absolute;
+    top: 10px; left: 10px;
+    color: white;
+    font-family: sans-serif;
+    background: rgba(0,0,0,0.4);
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div id="info">Engedélyekre vár...</div>
+<video id="camera" autoplay playsinline></video>
+<canvas id="overlay"></canvas>
+
+<script>
+const info = document.getElementById("info");
+const video = document.getElementById("camera");
+const canvas = document.getElementById("overlay");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let orientation = { alpha: 0, beta: 0, gamma: 0 };
+let position = { lat: 0, lon: 0 };
+
+// 1️⃣ Kamera bekapcsolása
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    video.srcObject = stream;
+  } catch (e) {
+    info.innerText = "Nem sikerült elérni a kamerát: " + e.message;
+  }
+}
+
+// 2️⃣ GPS lekérése
+navigator.geolocation.watchPosition(pos => {
+  position.lat = pos.coords.latitude;
+  position.lon = pos.coords.longitude;
+}, err => {
+  info.innerText = "GPS hiba: " + err.message;
+}, { enableHighAccuracy: true });
+
+// 3️⃣ Orientáció (giroszkóp)
+async function startOrientation() {
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS
+    const permission = await DeviceOrientationEvent.requestPermission();
+    if (permission !== 'granted') {
+      info.innerText = "Nem engedélyezted a mozgásérzékelőt.";
+      return;
+    }
+  }
+  window.addEventListener('deviceorientation', e => {
+    orientation.alpha = e.alpha || 0;
+    orientation.beta = e.beta || 0;
+    orientation.gamma = e.gamma || 0;
+  });
+}
+
+// 4️⃣ AR render loop
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // egy egyszerű „objektum” a képernyő közepén, ami forog a telefon mozgásával
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const size = 50 + 20 * Math.sin(Date.now() / 500);
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(orientation.alpha * Math.PI / 180);
+  ctx.strokeStyle = "rgba(0,255,0,0.8)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(-size/2, -size/2, size, size);
+  ctx.restore();
+
+  info.innerText = 
+    `📍 ${position.lat.toFixed(5)}, ${position.lon.toFixed(5)}\n` +
+    `🧭 α:${orientation.alpha.toFixed(1)} β:${orientation.beta.toFixed(1)} γ:${orientation.gamma.toFixed(1)}`;
+
+  requestAnimationFrame(loop);
+}
+
+// 5️⃣ Indítás
+startCamera();
+startOrientation();
+loop();
+</script>
+</body>
+</html>
