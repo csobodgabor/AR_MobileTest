@@ -129,14 +129,17 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// 🎬 Indítás gomb esemény
-startButton.addEventListener('click', async () => {
-  await startCamera();
-  await startOrientation();
+function startAR() {
+  startCamera();
+  startOrientation();
   startGPS();
   startButton.style.display = 'none';
   loop();
-});
+}
+
+// 🎬 Indítás gomb esemény
+startButton.addEventListener('click', startAR);
+startButton.addEventListener('touchstart', startAR);
 </script>
 
 </body>
